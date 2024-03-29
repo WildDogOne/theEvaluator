@@ -1,0 +1,10 @@
+elastic_config = {
+    "hosts": [
+        "https://elasticsearch01:9200",
+        "https://elasticsearch02:9200",
+        "https://elasticsearch03:9200",
+    ],
+    "username": "elastic",
+    "password": "1234",
+    "cert": False,
+}
