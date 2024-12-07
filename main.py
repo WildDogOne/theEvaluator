@@ -1,9 +1,21 @@
-from siem.elastic import ElasticSIEM
-from config import elastic_config
-from llm.openai import OpenAIWrapper
+from functions.elastic import ElasticSIEM
+from config import (
+    elastic_config,
+    confluence_page_id,
+    confluence_token,
+    confluence_url,
+    confluence_page_name,
+)
+from functions.ollama_functions import prioritise_alerts, evaluate_suricata
+from functions.confluence import confluence_update_page
+from atlassian import Confluence
 from pprint import pprint
 import json
+import argparse
+from rich.console import Console
+from rich.table import Table
 
+console = Console()
 
 es = ElasticSIEM(
     hosts=elastic_config["hosts"],
@@ -11,78 +23,54 @@ es = ElasticSIEM(
     password=elastic_config["password"],
 )
 
-def prioritise_alerts(hours=24, size=10):
-    alerts = es.get_latest_alerts(hours=hours, size=size)
-    evaluated = []
-    for alert in alerts:
-        retry_count = 0
-        retry_times = 2
-        while retry_count <= retry_times:
-            # x = alert
-            # x["kibana.alert.rule.parameters"].pop("risk_score", None)
-            # x["kibana.alert.rule.parameters"].pop("severity_mapping", None)
-            # x["kibana.alert.rule.parameters"].pop("severity", None)
-            openai_wrapper = OpenAIWrapper()
-            messages = [
-                {
-                    "role": "system",
-                    "content": "You are a security expert, your task is to take alert data and respond to the question of the user",
-                },
-                {
-                    "role": "user",
-                    "content": f"""Check the alert severity, give a the alert severity has to be a number of 1-10 while 1 is lowest and 10 is highest, return as a JSON with this format: {{ "alert_name": "<alert name>", "alert_severity": "<severity>", "comment": "<comment>" }}: {alert}""",
-                },
-            ]
-            text = openai_wrapper.generate_text(messages=messages, max_tokens=6000)
-            try:
-                answer = json.loads(text)
-                # pprint(answer)
-                evaluated.append(
-                    {
-                        "alert_url": alert["alert_url"],
-                        "llm": answer,
-                    }
-                )
-                break
-            except:
-                retry_count += 1
-                print("Retry")
-                pprint(alert)
-                print(text)
-                if retry_count >= retry_times:
-                    evaluated.append(
-                        {
-                            "alert_url": alert["alert_url"],
-                            "error": "Unable to process via LLM",
-                        }
-                    )
-    pprint(evaluated)
 
-def evaluate_suricata(size=10, hours=24):
-    alerts = es.get_latest_alerts(hours=hours, size=size, module="suricata")
-    for alert in alerts:
-        print(f'Payload:\n{alert["suricata_payload_printable"]}')
-        print(alert["suricata_signature"])
-        print(alert["suricata_signature_id"])
-        openai_wrapper = OpenAIWrapper()
-        messages = [
-            {
-                "role": "system",
-                "content": "You are a helpful, expert assistant who answers questions about Security. Do not answer questions unrelated to Security. Use the following context to answer questions:",
-            },
-            {
-                "role": "user",
-                "content": f"""Explain the suricata alert {alert["suricata_signature"]} with the following payload and suggest possible counter meassures: {alert["suricata_payload_printable"]}""",
-            },
-        ]
-        text = openai_wrapper.generate_text(messages=messages, max_tokens=6000)
-        print(text)
-        quit()
+def format_table(data):
+    table = Table(title="Alerts")
+    if not data:
+        console.print("No alerts to display.")
+        return
+
+    # Add columns based on keys from the first dictionary in the list
+    for key in data[0].keys():
+        table.add_column(key, style="cyan", no_wrap=True)
+
+    # Add rows based on each dictionary in the list
+    for dataset in data:
+        table.add_row(*(str(value) for value in dataset.values()))
+
+    console.print(table)
 
 
 def main():
-    #prioritise_alerts()
-    evaluate_suricata()
+    parser = argparse.ArgumentParser(description="Process some integers.")
+    parser.add_argument("--prioritise_alerts", action="store_true")
+    parser.add_argument("--evaluate_suricata", action="store_true")
+    parser.add_argument("--hours", type=int, default=24)
+    parser.add_argument("--size", type=int, default=10)
+    args = parser.parse_args()
+    hours = args.hours
+    size = args.size
+
+    if args.prioritise_alerts:
+        alerts = es.get_latest_alerts(hours=hours, size=size)
+        priorities = prioritise_alerts(alerts=alerts, html=True)
+        # pprint(priorities)
+        # format_table(priorities)
+        # prioritise_alerts(hours=args.hours, size=args.size)
+        confluence = Confluence(url=confluence_url, token=confluence_token)
+        confluence_update_page(
+            confluence=confluence,
+            title=confluence_page_name,
+            parent_id=confluence_page_id,
+            table=priorities,
+            representation="storage",
+            full_width=False,
+            escape_table=False,
+        )
+    elif args.evaluate_suricata:
+        alerts = es.get_latest_alerts(hours=hours, size=size, module="suricata")
+        evaluate_suricata(alerts=alerts, size=size, hours=hours)
+        # evaluate_suricata(size=args.size, hours=args.hours)
 
 
 if __name__ == "__main__":

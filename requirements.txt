@@ -1,2 +1,6 @@
 elasticsearch
-openai
+ollama
+rich
+atlassian-python-api
+pandas
+markdown
