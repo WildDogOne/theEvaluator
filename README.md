@@ -1,12 +1,14 @@
 # theEvaluator
 
+A tool collection to utilise local (or remote) LLMs to help triage security alerts
+
 ## Phishing
 ### Usage
 ```powershell
 python theEvaluator.py --eml <path_to_phishing_file>
 ```
 
-## main.py
+## siem.py
 ### Configuration
 
 The script relies on configuration details found in `config.py`. Ensure you have the following
@@ -39,29 +41,29 @@ confluence_page_name = "Your Confluence Page Name"
 1. **Prioritize Alerts to Confluence Page**
 
 ```bash
-python main.py --prioritise_alerts --output confluence
+python siem.py --prioritise_alerts --output confluence
 ```
 
 2. **Save Prioritized Alerts as Markdown File**
 
 ```bash
-python main.py --prioritise_alerts --output md --path path/to/file.md
+python siem.py --prioritise_alerts --output md --path path/to/file.md
 ```
 
 3. **Display Prioritized Alerts in Console**
 
 ```bash
-python main.py --prioritise_alerts --output console
+python siem.py --prioritise_alerts --output console
 ```
 
 4. **Evaluate Suricata Alerts**
 
 ```bash
-python main.py --evaluate_suricata
+python siem.py --evaluate_suricata
 ```
 
 5. **Investigate Specific Alert by ID**
 
 ```bash
-python main.py --investigate <alert_id>
+python siem.py --investigate <alert_id>
 ```
