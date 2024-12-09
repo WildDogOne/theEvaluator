@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from pprint import pprint
 import json
 import markdown
+from config import ollama_model
 
 
 class elastic_alert(BaseModel):
@@ -57,7 +58,7 @@ def prioritise_alerts(alerts=None, html=False):
             ]
             response = chat(
                 messages=messages,
-                model="qwq",
+                model=ollama_model,
                 format=elastic_alert.model_json_schema(),
                 options={
                     "num_predict": -1,
@@ -89,7 +90,7 @@ def investigate_alert(alert):
         ]
         response = chat(
             messages=messages,
-            model="qwq",
+            model=ollama_model,
             options={
                 "num_predict": -1,
                 "num_ctx": 10000,
