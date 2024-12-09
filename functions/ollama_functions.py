@@ -11,6 +11,7 @@ class elastic_alert(BaseModel):
     alert_name: str
     alert_severity: int
     alert_recomedation: str
+    false_positive: bool
 
 
 def convert_md_to_html(md):
@@ -28,11 +29,11 @@ def rename_keys(data):
         "alert_name": "Alert Name",
         "alert_severity": "Alert Severity",
         "alert_recomedation": "Alert Recomendation",
+        "false_positive": "False Positive",
     }
     for key in list(data.keys()):  # Use list to avoid runtime error
         if key in key_rename:
             data[key_rename[key]] = data.pop(key)
-    pprint(data)
     return data
 
 
@@ -50,13 +51,19 @@ def prioritise_alerts(alerts=None, html=False):
                 {
                     "role": "user",
                     "content": f"""Check the alert severity, give a the alert severity has to be a number of 1-10 while 1 is lowest and 10 is highest.
-                    Also give a recomendation of what could be done to triage this alert further: {alert}""",
+                    Give a recomendation of what could be done to triage this alert further
+                    Give feedback on if it is a true or false positive: {alert}""",
                 },
             ]
             response = chat(
                 messages=messages,
                 model="qwq",
                 format=elastic_alert.model_json_schema(),
+                options={
+                    "num_predict": -1,
+                    "num_ctx": 20000,
+                    # "temperature": temperature,
+                },
             )
             response = json.loads(response.message.content)
             response = rename_keys(response)
@@ -65,6 +72,31 @@ def prioritise_alerts(alerts=None, html=False):
                     response[key] = convert_md_to_html(response[key])
             evaluated.append(response)
         return evaluated
+
+
+def investigate_alert(alert):
+    if alert:
+
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a security expert, your task is to take alert data and respond to the question of the user",
+            },
+            {
+                "role": "user",
+                "content": f"""Help the security engineer understand what to do with the presented alert. If possible give feedback on if it is a true or false positive. {alert}""",
+            },
+        ]
+        response = chat(
+            messages=messages,
+            model="qwq",
+            options={
+                "num_predict": -1,
+                "num_ctx": 10000,
+                # "temperature": temperature,
+            },
+        )
+        return response.message.content
 
 
 def evaluate_suricata(self, alerts=None, size=10, hours=24):

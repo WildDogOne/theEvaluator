@@ -15,7 +15,6 @@ class ElasticSIEM:
         self.es = Elasticsearch(
             hosts=hosts,
             http_auth=(username, password),
-            # ca_certs=False
             verify_certs=verify_verts,
         )
 
@@ -32,7 +31,6 @@ class ElasticSIEM:
                 "bool": {
                     "must": [
                         {"match_all": {}},
-                        # {"match": {"kibana.alert.original_event.module": "suricata"}},
                         {
                             "range": {
                                 "@timestamp": {
@@ -58,8 +56,6 @@ class ElasticSIEM:
         important_information = []
         for hit in response["hits"]["hits"]:
             hit = hit["_source"]
-            # pprint(hit)
-            # quit()
             info = {}
             if (
                 "kibana.alert.rule.parameters" in hit
@@ -72,7 +68,14 @@ class ElasticSIEM:
                 info["rule_description"] = hit["kibana.alert.rule.description"]
             if "kibana.alert.url" in hit:
                 info["alert_url"] = hit["kibana.alert.url"]
-            fieldlist = ["rule", "source", "destination"]
+            fieldlist = [
+                "rule",
+                "source",
+                "destination",
+                "process.executable",
+                "winlog.event_data.TaskContent",
+                "powershell.file.script_block_text",
+            ]
             for x in fieldlist:
                 if x in hit:
                     info[x] = hit[x]
@@ -92,3 +95,20 @@ class ElasticSIEM:
             important_information.append(info)
 
         return important_information
+
+    def get_alert(self, id):
+        body = {
+            "_source": True,
+            "query": {
+                "bool": {
+                    "must": [
+                        {"match": {"_id": id}},
+                    ]
+                }
+            },
+        }
+        response = self.es.search(index=".internal.alerts-security.alerts-default-*", body=body)
+        if response["hits"]["total"]["value"] == 0:
+            return None
+        else:
+            return response["hits"]["hits"][0]
