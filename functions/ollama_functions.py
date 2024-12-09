@@ -123,3 +123,40 @@ def evaluate_suricata(self, alerts=None, size=10, hours=24):
     else:
         print("No alerts to evaluate")
         quit()
+
+
+def evaluate_email(
+    subject=None,
+    date=None,
+    text_plain=None,
+    text_html=None,
+    headers=None,
+    attachments=None,
+):
+
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a security expert, your task is to take alert data and respond to the question of the user",
+        },
+        {
+            "role": "user",
+            "content": f"""Help the security engineer Analyse this Email and give feedback on if it is a true or false positive.
+            The email has the following subject: {subject}
+            The email was sent on: {date}
+            The email has the following plain text: {text_plain}
+            The email has the following headers: {headers}
+            The email has the following attachments: {attachments}
+            """,
+        },
+    ]
+    response = chat(
+        messages=messages,
+        model=ollama_model,
+        options={
+            "num_predict": -1,
+            "num_ctx": 10000,
+            # "temperature": temperature,
+        },
+    )
+    return response.message.content

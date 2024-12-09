@@ -5,3 +5,6 @@ atlassian-python-api
 pandas
 markdown
 tabulate
+
+# Phishing Mail Evaluater
+fast-mail-parser
