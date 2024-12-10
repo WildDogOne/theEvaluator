@@ -29,6 +29,7 @@ es = ElasticSIEM(
     hosts=elastic_config["hosts"],
     username=elastic_config["username"],
     password=elastic_config["password"],
+    verify_certs=elastic_config["cert"],
 )
 
 
@@ -120,7 +121,7 @@ def main():
         elif args.output == "console":
             output_console(hours=hours, size=size)
 
-        winsound.Beep(440, 500)
+        winsound.PlaySound("SystemExclamation", winsound.SND_ALIAS)
     elif args.evaluate_suricata:
         alerts = es.get_latest_alerts(hours=hours, size=size, module="suricata")
         evaluate_suricata(alerts=alerts, size=size, hours=hours)

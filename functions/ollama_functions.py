@@ -3,16 +3,10 @@ from pydantic import BaseModel
 from pprint import pprint
 import json
 import markdown
-from config import ollama_model
+from config import ollama_model, ollama_keepalive
 
 
-class elastic_alert(BaseModel):
-    alert_url: str
-    prority: int
-    alert_name: str
-    alert_severity: int
-    alert_recomedation: str
-    false_positive: bool
+security_role = "You are a security expert, your task is to take alert data and respond to the question of the user"
 
 
 def convert_md_to_html(md):
@@ -28,9 +22,9 @@ def rename_keys(data):
         "alert_url": "Alert URL",
         "prority": "Priority",
         "alert_name": "Alert Name",
-        "alert_severity": "Alert Severity",
-        "alert_recomedation": "Alert Recomendation",
-        "false_positive": "False Positive",
+        # "alert_recomedation": "Alert Recomendation",
+        "verdict": "Verdict",
+        "summary": "Summary",
     }
     for key in list(data.keys()):  # Use list to avoid runtime error
         if key in key_rename:
@@ -38,40 +32,118 @@ def rename_keys(data):
     return data
 
 
+def prioritise_alert(alert=None):
+    class elastic_alert(BaseModel):
+        alert_url: str
+        prority: int
+        alert_name: str
+        # alert_recomedation: str
+        verdict: str
+        summary: str
+
+    messages = [
+        {
+            "role": "system",
+            "content": security_role,
+        },
+        {
+            "role": "user",
+            "content": f"""
+                    Check the given alert for investigation priority, where 1 is the highest priority and 10 is the lowest.
+                    Using the data you got make a verdict on if the alert is a true, false positive or unknown, and giving a reasoning to why you got that result.
+                    If it is not possible to write a verdict from the information given, write what information is missing.
+                    Write a summary of the attack story and what happened in detail, for powershell alerts, check the command that was executed and make an evaluation of that command.
+                    Make sure taht the output is a valid JSON object.
+
+                    Alert Context:
+                    {alert}""",
+        },
+    ]
+    response = chat(
+        messages=messages,
+        keep_alive=ollama_keepalive,
+        model=ollama_model,
+        format=elastic_alert.model_json_schema(),
+        options={
+            "num_predict": -1,
+            "num_ctx": 20000,
+            # "temperature": temperature,
+        },
+    )
+    response = json.loads(response.message.content)
+    response = rename_keys(response)
+    return response
+
+
+def evaluate_priorisation(alert=None, evaluation=None):
+    class true_false(BaseModel):
+        satisfactory: bool
+        satiscfaction_level: int
+
+    messages = [
+        {
+            "role": "system",
+            "content": security_role,
+        },
+        {
+            "role": "user",
+            "content": f"""Given the original alert data and its summary, assess whether the summary accurately and concisely captures the key points of the original alert."
+            "Provied a true or false answer if you think the summary is satisfactory and could be published to the user as well as a score from 1-10 on how satisfied you are with the summary."
+            Original Text:
+            {alert}
+            Summary:
+            {evaluation}""",
+        },
+    ]
+    response = chat(
+        messages=messages,
+        model=ollama_model,
+        format=true_false.model_json_schema(),
+        keep_alive=ollama_keepalive,
+        options={
+            "num_predict": -1,
+            "num_ctx": 10000,
+            # "temperature": temperature,
+        },
+    )
+    response = json.loads(response.message.content)
+    return response
+
+
 def prioritise_alerts(alerts=None, html=False):
     if alerts:
         evaluated = []
         for alert in alerts:
-            # pprint(alert)
+            evaluations = 1
+            storage = []
+            while True:
+                evaluation = prioritise_alert(alert=alert)
+                check = evaluate_priorisation(alert=alert, evaluation=evaluation)
+                if check["satisfactory"]:
+                    break
+                else:
+                    print("Re-evaluating the alert")
+                    print(f"Attempt: {evaluations}")
+                    storage.append(
+                        {
+                            "evaluation": evaluation,
+                            "satisfaction_level": check["satiscfaction_level"],
+                        }
+                    )
+                    if evaluations >= 3:
+                        evaluations += 1
+                        print(
+                            "Too many attempts, skipping re-generation and taking the best result"
+                        )
+                        evaluation = sorted(
+                            storage, key=lambda x: x["satisfaction_level"], reverse=True
+                        )[0]["evaluation"]
+                        break
 
-            messages = [
-                {
-                    "role": "system",
-                    "content": "You are a security expert, your task is to take alert data and respond to the question of the user",
-                },
-                {
-                    "role": "user",
-                    "content": f"""Check the alert severity, give a the alert severity has to be a number of 1-10 while 1 is lowest and 10 is highest.
-                    Give a recomendation of what could be done to triage this alert further
-                    Give feedback on if it is a true or false positive: {alert}""",
-                },
-            ]
-            response = chat(
-                messages=messages,
-                model=ollama_model,
-                format=elastic_alert.model_json_schema(),
-                options={
-                    "num_predict": -1,
-                    "num_ctx": 20000,
-                    # "temperature": temperature,
-                },
-            )
-            response = json.loads(response.message.content)
-            response = rename_keys(response)
             if html:
-                for key in response:
-                    response[key] = convert_md_to_html(response[key])
-            evaluated.append(response)
+                for key in evaluation:
+                    evaluation[key] = convert_md_to_html(evaluation[key])
+            evaluated.append(evaluation)
         return evaluated
 
 
@@ -81,7 +153,7 @@ def investigate_alert(alert):
         messages = [
             {
                 "role": "system",
-                "content": "You are a security expert, your task is to take alert data and respond to the question of the user",
+                "content": security_role,
             },
             {
                 "role": "user",
@@ -91,6 +163,7 @@ def investigate_alert(alert):
         response = chat(
             messages=messages,
             model=ollama_model,
+            keep_alive=ollama_keepalive,
             options={
                 "num_predict": -1,
                 "num_ctx": 10000,
@@ -137,7 +210,7 @@ def evaluate_email(
     messages = [
         {
             "role": "system",
-            "content": "You are a security expert, your task is to take alert data and respond to the question of the user",
+            "content": security_role,
         },
         {
             "role": "user",
@@ -153,6 +226,7 @@ def evaluate_email(
     response = chat(
         messages=messages,
         model=ollama_model,
+        keep_alive=ollama_keepalive,
         options={
             "num_predict": -1,
             "num_ctx": 10000,

@@ -161,3 +161,4 @@ cython_debug/
 config.py
 *.ipynb
 .vscode/
+ca.crt

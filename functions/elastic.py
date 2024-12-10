@@ -9,13 +9,13 @@ class ElasticSIEM:
         hosts="your_host",
         username="your_username",
         password="your_password",
-        verify_verts=False,
+        verify_certs=False,
     ):
         print(hosts)
         self.es = Elasticsearch(
             hosts=hosts,
             http_auth=(username, password),
-            verify_certs=verify_verts,
+            verify_certs=verify_certs,
         )
 
     def get_latest_alerts(
@@ -92,7 +92,8 @@ class ElasticSIEM:
                 for x in fieldlist:
                     if x in hit["suricata"]["eve"]:
                         info[f"suricata_{x}"] = hit["suricata"]["eve"][x]
-            important_information.append(info)
+            #important_information.append(info)
+            important_information.append(hit)
 
         return important_information
 
