@@ -50,10 +50,9 @@ def prioritise_alert(alert=None):
             "role": "user",
             "content": f"""
                     Check the given alert for investigation priority, where 1 is the highest priority and 10 is the lowest.
-                    Using the data you got make a verdict on if the alert is a true, false positive or unknown, and giving a reasoning to why you got that result.
-                    If it is not possible to write a verdict from the information given, write what information is missing.
-                    Write a summary of the attack story and what happened in detail, for powershell alerts, check the command that was executed and make an evaluation of that command.
-                    Make sure taht the output is a valid JSON object.
+                    Using the data you got make a verdict on if the alert is a true, false positive or unknown, do not elaborate on the verdict.
+                    Write a summary of the attack story and what happened in detail and what could be done to investigate further, for powershell alerts, check the command that was executed and make an evaluation of that command.
+                    Make sure that the output is a valid JSON object.
 
                     Alert Context:
                     {alert}""",
