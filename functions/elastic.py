@@ -44,6 +44,11 @@ class ElasticSIEM:
                     "must_not": [
                         {"match": {"message": "Potentially Bad Traffic"}},
                         {"match": {"message": "Misc Attack"}},
+                        {
+                            "match": {
+                                "kibana.alert.rule.name": "Multiple Alerts in Different ATT&CK Tactics on a Single Host"
+                            }
+                        },
                     ],
                 }
             },
@@ -92,7 +97,7 @@ class ElasticSIEM:
                 for x in fieldlist:
                     if x in hit["suricata"]["eve"]:
                         info[f"suricata_{x}"] = hit["suricata"]["eve"][x]
-            #important_information.append(info)
+            # important_information.append(info)
             important_information.append(hit)
 
         return important_information
@@ -108,7 +113,9 @@ class ElasticSIEM:
                 }
             },
         }
-        response = self.es.search(index=".internal.alerts-security.alerts-default-*", body=body)
+        response = self.es.search(
+            index=".internal.alerts-security.alerts-default-*", body=body
+        )
         if response["hits"]["total"]["value"] == 0:
             return None
         else:
