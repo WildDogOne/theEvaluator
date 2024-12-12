@@ -41,6 +41,27 @@ def prioritise_alert(alert=None):
         verdict: str
         summary: str
 
+    security_role = """
+You are a cybersecurity analyst performing alert triage. Analyze the security alert provided and respond with a JSON object using the exact following structure:
+
+{
+    "alert_url": "string containing the URL or reference ID of the alert",
+    "priority": "integer between 1-10, where 1 is highest priority",
+    "alert_name": "string containing the name/title of the alert",
+    "verdict": "string containing either 'true_positive', 'false_positive', or 'undetermined'",
+    "summary": "string containing a clear, concise analysis of the alert including key indicators and rationale for the verdict and priority"
+}
+
+Guidelines:
+- Priority must be an integer from 1-10
+- Verdict must be exactly one of: 'true_positive', 'false_positive', or 'undetermined'
+- If critical information is missing, use 'undetermined' as verdict and explain what additional data is needed in the summary
+- Do not make assumptions about missing data
+- Ensure the output is valid JSON format
+- Do not include any text outside of the JSON structure
+
+Respond only with the JSON object. Do not include any additional commentary.
+"""
     messages = [
         {
             "role": "system",
